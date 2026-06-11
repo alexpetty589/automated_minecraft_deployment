@@ -21,12 +21,6 @@
         content: "{{ ec2_key.key.private_key }}"
         dest: "{{ key_save_path }}"
         mode: "0600"
-
-    - name: Changes private key to 0600
-      file:
-          path: "{{ key_save_path }}"
-          mode: "0600"
-          state: file
     
     - name: Create Minecraft security group
       amazon.aws.ec2_security_group:
@@ -84,7 +78,7 @@
 
     - name: Write Inventory file for connecting to instance
       copy:
-        dest: inventory/hosts.ini
+        dest: hosts.ini
         content: |
           [minecraft]
           {{ elastic_ip.public_ip }} ansible_user=ubuntu ansible_ssh_private_key_file={{ key_save_path }}

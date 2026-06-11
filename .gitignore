@@ -1,4 +1,5 @@
 *.pem
 *.key
 
+hosts.ini
 inventory/hosts.ini
