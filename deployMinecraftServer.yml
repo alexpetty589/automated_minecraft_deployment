@@ -1,0 +1,90 @@
+- name: Deploy Minecraft Server
+  hosts: minecraft
+  become: true
+  gather_facts: true
+
+
+  tasks:
+
+    - name: Wait for SSH
+      wait_for_connection:
+        timeout: 120
+
+    - name: Update apt
+      apt:
+        update_cache: true
+
+    - name: Install dependencies
+      apt:
+        name:
+          - software-properties-common
+          - screen
+          - openjdk-25-jdk
+        state: present
+
+    - name: Create minecraft system user
+      user:
+        name: minecraft
+        system: true
+        home: "{{ minecraft_dir }}"
+        shell: /usr/sbin/nologin
+        create_home: true
+
+    - name: Create minecraft directory with correct permissions
+      file:
+        path: "{{ minecraft_dir }}"
+        state: directory
+        owner: minecraft
+        group: minecraft
+        mode: "0755"
+
+    - name: Download Minecraft server jar
+      ansible.builtin.get_url:
+        url: "{{ minecraft_version_url }}"
+        dest: "{{ minecraft_dir }}/server.jar"
+        owner: minecraft
+        group: minecraft
+        mode: "0644"
+
+    - name: Accept Minecraft EULA #server will not run without this
+      ansible.builtin.copy:
+        dest: "{{ minecraft_dir }}/eula.txt"
+        content: "eula=true\n"
+        owner: minecraft
+        group: minecraft
+        mode: "0644"
+
+    - name: Install Minecraft systemd service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/minecraft.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=start and stop the minecraft-server
+          [Service]
+          WorkingDirectory=/minecraft
+          User=minecraft
+          Group=minecraft
+          Restart=on-failure
+          RestartSec=20
+          ExecStart=/usr/bin/java 
+            -Xms {{ minecraft_ram_min }}
+            -Xmx {{ minecraft_ram_max }}
+            -jar server.jar --nogui
+          
+          [Install]
+          WantedBy=multi-user.target
+    
+    - name: Enable and start Minecraft service
+      ansible.builtin.systemd:
+        name: minecraft
+        daemon_reload: true
+        enabled: true
+        state: started
+    
+    - name: Print server address
+      ansible.builtin.debug:
+        msg:
+          - "Install successful! :)"
+          - "Connect to server at: {{ ansible_host }}:{{ minecraft_port }}"
+  

@@ -2,8 +2,8 @@ aws_region: us-east-1
 instance_type: t3.micro     #current free tier, might change in future
 ami_id: ami-091138d0f0d41ff90  #current free tier, for Ubuntu 26.04
 
-key_name: minecraftKey
-key_save_path: "~/.ssh/minecraftKey.pem"  
+key_name: minecraftKeyNew
+key_save_path: "minecraftKeyNew.pem"  
 
 security_group_name: minecraft_settings
 ssh_port: 22

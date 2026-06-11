@@ -3,12 +3,16 @@
   connection: local
   gather_facts: true
 
+  vars:
+    my_ip: "{{ lookup('url', 'https://checkip.amazonaws.com').strip() }}/32"
+
   tasks:
     - name: Generate RSA Key
       amazon.aws.ec2_key:
         name: "{{ key_name }}"
         region: "{{ aws_region }}"
         key_type: "rsa"
+        force: true
       register: ec2_key
 
     - name: Save private key to disk (only present on first creation)
@@ -18,12 +22,12 @@
         dest: "{{ key_save_path }}"
         mode: "0600"
 
-
-    # Gathers public IP address to be used for SSH rules
-    - name: Set a my public IP address
-      set_fact:
-        my_public_ip: "{{ ansible_facts['default_ipv4']['address'] }}/32"
-
+    - name: Changes private key to 0600
+      file:
+          path: "{{ key_save_path }}"
+          mode: "0600"
+          state: file
+    
     - name: Create Minecraft security group
       amazon.aws.ec2_security_group:
         name: "{{ security_group_name }}"
@@ -32,7 +36,7 @@
         rules:
           - proto: tcp
             ports: "{{ ssh_port }}"
-            cidr_ip: "{{ my_public_ip }}"
+            cidr_ip: "{{ my_ip }}"
             rule_desc: "SSH developer IP only"
           - proto: tcp
             ports: "{{ minecraft_port }}"
@@ -90,4 +94,5 @@
         msg:
           - "Instance ID : {{ instance_id }}"
           - "Elastic IP  : {{ elastic_ip.public_ip }}"
-          - "Key saved to: {{ key_save_path }}"    
+          - "Key saved to: {{ key_save_path }}"
+          - "Recorded public IP: {{ my_ip }}"    
