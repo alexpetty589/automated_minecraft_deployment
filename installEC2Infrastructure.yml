@@ -1,14 +1,9 @@
 - name: Make EC2 Instance
   hosts: localhost
   connection: local
-  gather_facts: false
+  gather_facts: true
 
   tasks:
-    - name: Test Print0
-      debug:
-        msg:
-          - "Testing"
-
     - name: Generate RSA Key
       amazon.aws.ec2_key:
         name: "{{ key_name }}"
@@ -23,8 +18,76 @@
         dest: "{{ key_save_path }}"
         mode: "0600"
 
-    - name: Test Print
-      debug:
+
+    # Gathers public IP address to be used for SSH rules
+    - name: Set a my public IP address
+      set_fact:
+        my_public_ip: "{{ ansible_facts['default_ipv4']['address'] }}/32"
+
+    - name: Create Minecraft security group
+      amazon.aws.ec2_security_group:
+        name: "{{ security_group_name }}"
+        description: "Allows SSH for developer and default Minecraft port"
+        region: "{{ aws_region }}"
+        rules:
+          - proto: tcp
+            ports: "{{ ssh_port }}"
+            cidr_ip: "{{ my_public_ip }}"
+            rule_desc: "SSH developer IP only"
+          - proto: tcp
+            ports: "{{ minecraft_port }}"
+            cidr_ip: 0.0.0.0/0
+            rule_desc: "Minecraft open port"
+        rules_egress:
+          - proto: all
+            cidr_ip: 0.0.0.0/0
+      register: minecraft_security_group
+
+
+    - name: Launch EC2 instance
+      amazon.aws.ec2_instance:
+        name: "Minecraft server"
+        key_name: "{{ key_name }}"
+        instance_type: "{{ instance_type }}"
+        image_id: "{{ ami_id }}"
+        region: "{{ aws_region }}"
+        security_group: "{{ security_group_name }}"
+        wait: true
+        state: running
+        tags:
+          Project: minecraft
+      register: ec2
+
+    - name: Store instance ID
+      set_fact:
+        instance_id: "{{ ec2.instances[0].instance_id }}" #newly created ec2 instances are instance 0
+
+    - name: Allocate Elastic IP
+      amazon.aws.ec2_eip:
+        region: "{{ aws_region }}"
+        in_vpc: true                      # Will use default VPC, do not need to create a new one
+        tag_name: minecraft-eip
+        reuse_existing_ip_allowed: true   
+      register: elastic_ip
+
+
+    - name: Associate Elastic IP with instance
+      amazon.aws.ec2_eip:
+        region: "{{ aws_region }}"
+        device_id: "{{ instance_id }}"
+        ip: "{{ elastic_ip.public_ip }}"
+        in_vpc: true
+
+    - name: Write Inventory file for connecting to instance
+      copy:
+        dest: inventory/hosts.ini
+        content: |
+          [minecraft]
+          {{ elastic_ip.public_ip }} ansible_user=ubuntu ansible_ssh_private_key_file={{ key_save_path }}
+
+    - name: Print connection details
+      ansible.builtin.debug:
         msg:
-          - "Test"
-      
+          - "Instance ID : {{ instance_id }}"
+          - "Elastic IP  : {{ elastic_ip.public_ip }}"
+          - "Key saved to: {{ key_save_path }}"    

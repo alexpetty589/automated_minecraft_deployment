@@ -1,4 +1,16 @@
 aws_region: us-east-1
+instance_type: t3.micro     #current free tier, might change in future
+ami_id: ami-091138d0f0d41ff90  #current free tier, for Ubuntu 26.04
 
 key_name: minecraftKey
 key_save_path: "~/.ssh/minecraftKey.pem"  
+
+security_group_name: minecraft_settings
+ssh_port: 22
+minecraft_port: 25565
+
+
+minecraft_version_url: "https://piston-data.mojang.com/v1/objects/97ccd4c0ed3f81bbb7bfacddd1090b0c56f9bc51/server.jar"
+minecraft_dir: /minecraft
+minecraft_ram_min: 1024M
+minecraft_ram_max: 1024Mx
